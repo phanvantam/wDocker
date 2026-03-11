@@ -27,13 +27,13 @@ wDocker runs a centralized Nginx proxy container that routes traffic to all your
 To make the `.test` domains work, wDocker instantly controls and updates your system's `/etc/hosts` file (with elevated privileges when necessary) ensuring transparent DNS resolution for all your projects.
 ![Local DNS Manager](./images/local-dns.png)
 
-### 🕵️ Deep Container Inspection
-Dive deep into your running services without opening a separate terminal app. wDocker provides built-in real-time access logs, an interactive container terminal, and live YAML configuration editors.
-![Container Inspection Detail](./images/project-detail.png)
+### 🕵️ Project Details & Management
+Access comprehensive details for each project. wDocker provides built-in real-time access logs, an interactive container terminal, and live editors for project YAML configurations and Nginx route settings.
+![Project Details](./images/project-detail.png)
 
-### 🧹 Docker Storage & Cleanup
-Keep your development environment lean. Our dedicated storage manager identifies dangling images, unused volumes, and stopped containers, helping you reclaim precious disk space instantly.
-![Storage Manager Tool](./images/storage-manager.png)
+### 🧹 Project & Router Log Cleanup
+Keep your development environment lean by monitoring source code sizes and clearing log files. Our dedicated storage manager allows you to instantly clear access and error logs for both the Nginx Router Proxy and individual projects.
+![Log Cleanup Manager](./images/storage-manager.png)
 
 ---
 

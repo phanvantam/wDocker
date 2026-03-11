@@ -19,7 +19,7 @@ wDocker is a fast and elegant Docker Desktop alternative tailored specifically f
 - **⚡ Blazing Fast:** Boots instantly with a minimal memory footprint compared to Electron apps.
 - **🌐 Built-in Nginx Proxy & DNS:** Access your local projects via custom `.test` domains without remembering ports.
 - **🚀 1-Click Project Setup:** Instantly spin up Laravel, PHP, and Node environments with pre-configured Docker Compose templates.
-- **🛠️ Power Tools:** Built-in interactive terminal, smart log streaming, YAML config editor, and disk cleanup managers.
+- **🛠️ Power Tools:** Built-in interactive terminal, smart log streaming, YAML config editor, and integrated log & storage managers.
 - **🛡️ Secure & Private:** Runs entirely locally via the Docker socket.
 
 ---
