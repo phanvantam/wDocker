@@ -49,7 +49,7 @@
 import AppIcon from '../AppIcon.vue';
 import { useCodeEditor } from '../../composables/useCodeEditor';
 
-const props = defineProps<{
+defineProps<{
   show: boolean;
   fileName: string;
   modelValue: string;

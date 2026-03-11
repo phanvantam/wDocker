@@ -114,8 +114,7 @@ const navItems = ref([
   { path: '/settings', label: 'Settings', icon: 'settings', badge: undefined as number | undefined },
 ]);
 
-const showBottomPanel = ref(true);
-const activeBottomTab = ref('logs');
+
 
 async function checkDocker() {
   try {

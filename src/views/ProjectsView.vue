@@ -38,6 +38,7 @@
           @inspect="openInspect(proj)"
           @launch="launchProject(proj)"
           @stop="stopProject(proj)"
+          @delete="confirmDeleteProject(proj)"
         />
       </div>
     </div>
@@ -130,7 +131,7 @@
           <!-- File Tabs Selector -->
           <div class="px-6 pt-4 flex gap-2 border-b border-[var(--color-border)] overflow-x-auto bg-black/10 shrink-0">
              <button 
-                v-for="(content, fileName) in editingFiles" 
+                v-for="(_, fileName) in editingFiles" 
                 :key="fileName"
                 @click="activeConfigFileName = fileName"
                 class="cursor-pointer px-4 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 transition"
@@ -416,10 +417,7 @@ function closeInspect() {
 
 // ── Project Lifecycle ────────────────────────────────────────
 
-async function startProject(proj: Project) {
-  try { await invoke('start_container', { id: getContainerId(proj) }); } catch (e) { console.error('Start failed:', e); }
-  await refreshProjectStatuses(getContainerId);
-}
+
 
 async function stopProject(proj: Project) {
   try { await invoke('stop_container', { id: getContainerId(proj) }); } catch (e) { console.error('Stop failed:', e); }

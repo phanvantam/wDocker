@@ -138,7 +138,7 @@
 import AppIcon from './AppIcon.vue';
 import type { ServiceConfig } from '../composables/useDockerGenerator';
 
-const props = defineProps<{
+defineProps<{
   service: ServiceConfig;
   index: number;
   phpExtensionCategories: any[];

@@ -27,6 +27,9 @@
         <button @click="$emit('edit')" class="cursor-pointer p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)] hover:text-white hover:border-[var(--color-accent)] transition">
           <AppIcon name="edit" :size="14" />
         </button>
+        <button @click="$emit('delete')" class="cursor-pointer p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition" title="Delete Project">
+          <AppIcon name="close" :size="14" />
+        </button>
       </div>
     </div>
 
@@ -94,6 +97,7 @@ defineEmits<{
   (e: 'inspect'): void;
   (e: 'launch'): void;
   (e: 'stop'): void;
+  (e: 'delete'): void;
 }>();
 
 const isHealthy = computed(() => props.status === 'running');

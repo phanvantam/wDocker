@@ -65,7 +65,7 @@ const emit = defineEmits(['close', 'open', 'update:activeTab']);
 const drawerHeight = ref(props.initialHeight || 300);
 const isResizing = ref(false);
 
-function startResize(e: MouseEvent) {
+function startResize(_e: MouseEvent) {
   isResizing.value = true;
   document.addEventListener('mousemove', handleResize);
   document.addEventListener('mouseup', stopResize);
