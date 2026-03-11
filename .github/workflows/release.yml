@@ -43,7 +43,12 @@ jobs:
           node-version: 20
           cache: 'yarn'
 
-      - name: Install Rust
+      - name: Install Rust (Default)
+        if: matrix.rust_target == ''
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust (Cross-compile)
+        if: matrix.rust_target != ''
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust_target }}
@@ -56,7 +61,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: wDocker-v__VERSION__
+          tagName: v__VERSION__
           releaseName: 'wDocker v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
