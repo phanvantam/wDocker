@@ -1,0 +1,167 @@
+{
+  "categories": [
+    {
+      "name": "Database",
+      "extensions": [
+        {
+          "name": "pdo_mysql",
+          "type": "core",
+          "deps": { "debian": [], "alpine": [] }
+        },
+        {
+          "name": "pdo_pgsql",
+          "type": "core",
+          "deps": { "debian": ["libpq-dev"], "alpine": ["postgresql-dev"] }
+        },
+        {
+          "name": "mysqli",
+          "type": "core",
+          "deps": { "debian": [], "alpine": [] }
+        },
+        {
+          "name": "pdo_sqlite",
+          "type": "core",
+          "deps": { "debian": ["libsqlite3-dev"], "alpine": ["sqlite-dev"] }
+        },
+        {
+          "name": "sqlite3",
+          "type": "core",
+          "deps": { "debian": ["libsqlite3-dev"], "alpine": ["sqlite-dev"] }
+        },
+        {
+          "name": "sqlsrv",
+          "type": "pecl",
+          "deps": { 
+            "debian": ["unixodbc-dev"], 
+            "alpine": ["unixodbc-dev"] 
+          },
+          "minPhp": "7.0"
+        },
+        {
+          "name": "pdo_sqlsrv",
+          "type": "pecl",
+          "deps": { 
+            "debian": ["unixodbc-dev"], 
+            "alpine": ["unixodbc-dev"] 
+          },
+          "minPhp": "7.0"
+        }
+      ]
+    },
+    {
+      "name": "Graphics & Files",
+      "extensions": [
+        {
+          "name": "gd",
+          "type": "core",
+          "configure": "--with-freetype --with-jpeg",
+          "deps": { 
+            "debian": ["libpng-dev", "libjpeg62-turbo-dev", "libfreetype6-dev"], 
+            "alpine": ["libpng-dev", "libjpeg-turbo-dev", "freetype-dev"] 
+          }
+        },
+        {
+          "name": "zip",
+          "type": "core",
+          "deps": { 
+            "debian": ["libzip-dev"], 
+            "alpine": ["libzip-dev"] 
+          }
+        },
+        {
+          "name": "exif",
+          "type": "core",
+          "deps": { "debian": [], "alpine": [] }
+        }
+      ]
+    },
+    {
+      "name": "System & Optimization",
+      "extensions": [
+        {
+          "name": "intl",
+          "type": "core",
+          "deps": { 
+            "debian": ["libicu-dev"], 
+            "alpine": ["icu-dev"] 
+          }
+        },
+        {
+          "name": "bcmath",
+          "type": "core",
+          "deps": { "debian": [], "alpine": [] }
+        },
+        {
+          "name": "opcache",
+          "type": "core",
+          "deps": { "debian": [], "alpine": [] }
+        },
+        {
+          "name": "mbstring",
+          "type": "core",
+          "deps": { 
+            "debian": ["libonig-dev"], 
+            "alpine": ["oniguruma-dev"] 
+          }
+        },
+        {
+          "name": "soap",
+          "type": "core",
+          "deps": { 
+            "debian": ["libxml2-dev"], 
+            "alpine": ["libxml2-dev"] 
+          }
+        },
+        {
+          "name": "sockets",
+          "type": "core",
+          "deps": { "debian": [], "alpine": [] }
+        },
+        {
+          "name": "pcntl",
+          "type": "core",
+          "deps": { "debian": [], "alpine": [] }
+        }
+      ]
+    },
+    {
+      "name": "Caching & Debugging",
+      "extensions": [
+        {
+          "name": "redis",
+          "type": "pecl",
+          "deps": { "debian": [], "alpine": [] }
+        },
+        {
+          "name": "memcached",
+          "type": "pecl",
+          "deps": { 
+            "debian": ["libmemcached-dev", "zlib1g-dev"], 
+            "alpine": ["libmemcached-dev", "zlib-dev"] 
+          }
+        },
+        {
+          "name": "xdebug",
+          "type": "pecl",
+          "deps": { "debian": [], "alpine": [] }
+        },
+        {
+          "name": "imagick",
+          "type": "pecl",
+          "deps": { 
+            "debian": ["libmagickwand-dev"], 
+            "alpine": ["imagemagick-dev"] 
+          }
+        },
+        {
+          "name": "mongodb",
+          "type": "pecl",
+          "deps": { 
+            "debian": ["libssl-dev", "pkg-config"], 
+            "alpine": ["openssl-dev", "pkgconfig"] 
+          }
+        }
+      ]
+    }
+  ]
+}

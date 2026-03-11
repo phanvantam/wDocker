@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --color-surface: #0f1117;
+  --color-surface-alt: #161922;
+  --color-surface-hover: #1c2030;
+  --color-border: #2a2e3e;
+  --color-border-hover: #3d4258;
+  --color-accent: #6366f1;
+  --color-accent-hover: #818cf8;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-muted: #64748b;
+}

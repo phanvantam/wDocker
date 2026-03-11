@@ -1,0 +1,89 @@
+{
+  "categories": [
+    {
+      "name": "Web Servers & PHP",
+      "images": [
+        {
+          "name": "php",
+          "description": "PHP Apache/FPM images",
+          "tags": ["8.3-apache", "8.2-apache", "8.1-apache", "7.4-apache", "7.3-apache", "7.2-apache", "7.1-apache", "7.0-apache", "5.6-apache", "8.3-fpm-alpine", "8.2-fpm-alpine", "8.1-fpm-alpine", "7.4-fpm-alpine"]
+        },
+        {
+          "name": "nginx",
+          "description": "High performance web server",
+          "tags": ["alpine", "latest", "stable-alpine"]
+        },
+        {
+          "name": "httpd",
+          "description": "Apache HTTP Server",
+          "tags": ["alpine", "2.4-alpine"]
+        }
+      ]
+    },
+    {
+      "name": "Runtimes",
+      "images": [
+        {
+          "name": "node",
+          "description": "Node.js JavaScript runtime",
+          "tags": ["20-alpine", "18-alpine", "lts-alpine", "current-alpine"]
+        },
+        {
+          "name": "python",
+          "description": "Python programming language",
+          "tags": ["3.12-alpine", "3.11-alpine", "3.10-alpine"]
+        },
+        {
+          "name": "golang",
+          "description": "Go programming language",
+          "tags": ["1.22-alpine", "1.21-alpine", "alpine"]
+        }
+      ]
+    },
+    {
+      "name": "Databases",
+      "images": [
+        {
+          "name": "mysql",
+          "description": "MySQL Database",
+          "tags": ["8.0", "5.7", "latest"]
+        },
+        {
+          "name": "mariadb",
+          "description": "MariaDB Database",
+          "tags": ["lts", "latest", "10.11"]
+        },
+        {
+          "name": "postgres",
+          "description": "PostgreSQL Database",
+          "tags": ["16-alpine", "15-alpine", "14-alpine", "alpine"]
+        }
+      ]
+    },
+    {
+      "name": "Caching & Tools",
+      "images": [
+        {
+          "name": "redis",
+          "description": "In-memory data structure store",
+          "tags": ["alpine", "7-alpine", "6-alpine"]
+        },
+        {
+          "name": "memcached",
+          "description": "Distributed memory object caching system",
+          "tags": ["alpine", "latest"]
+        },
+        {
+          "name": "adminer",
+          "description": "Database management in a single PHP file",
+          "tags": ["latest"]
+        },
+        {
+          "name": "mailpit",
+          "description": "Email testing tool for developers",
+          "tags": ["latest"]
+        }
+      ]
+    }
+  ]
+}
