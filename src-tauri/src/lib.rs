@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use dashmap::DashMap;
 use tauri::{State, Manager};
+use chrono::Local;
 
 // ── Configuration ────────────────────────────────────────
 
@@ -538,7 +539,7 @@ async fn create_network(state: State<'_, AppState>, name: String, driver: Option
 }
 
 #[tauri::command]
-async fn launch_compose(app: tauri::AppHandle, state: State<'_, AppState>, yaml: String, project_name: String, working_dir: Option<String>) -> Result<String, String> {
+async fn launch_compose(app: tauri::AppHandle, state: State<'_, AppState>, yaml: String, project_name: String, working_dir: Option<String>, force_build: Option<bool>) -> Result<String, String> {
     use std::io::Write;
     use tokio::io::{AsyncBufReadExt, BufReader};
     use std::process::Stdio;
@@ -553,7 +554,24 @@ async fn launch_compose(app: tauri::AppHandle, state: State<'_, AppState>, yaml:
     let host = state.config.lock().unwrap().docker_host.clone();
 
     let mut cmd = tokio::process::Command::new(&get_docker_cli_path());
-    cmd.args(["compose", "-f", file_path.to_str().unwrap(), "-p", &project_name, "up", "-d"]);
+    
+    // 2. Setup Log file path
+    let safe_pname = project_name.strip_prefix("wdp-").unwrap_or(&project_name);
+    let home = std::env::var("HOME").unwrap_or_default();
+    let log_dir = std::path::Path::new(&home).join(".wDocker/logs").join(safe_pname);
+    let _ = std::fs::create_dir_all(&log_dir);
+    
+    let now = Local::now();
+    let log_filename = format!("deploy_{}.log", now.format("%Y%m%d_%H%M%S"));
+    let log_file_path = log_dir.join(&log_filename);
+    let _ = std::fs::File::create(&log_file_path);
+
+    let mut args = vec!["compose", "-f", file_path.to_str().unwrap(), "-p", &project_name, "up", "-d"];
+    if force_build.unwrap_or(false) {
+        args.push("--build");
+        args.push("--force-recreate");
+    }
+    cmd.args(&args);
     
     // If working_dir is provided, use it (crucial for build contexts)
     if let Some(wd) = working_dir {
@@ -574,27 +592,35 @@ async fn launch_compose(app: tauri::AppHandle, state: State<'_, AppState>, yaml:
     let stderr = child.stderr.take().unwrap();
 
     let app_clone1 = app.clone();
+    let log_path1 = log_file_path.clone();
     let mut stdout_reader = BufReader::new(stdout).lines();
     tokio::spawn(async move {
+        use std::fs::OpenOptions;
+        let mut f = OpenOptions::new().append(true).open(log_path1).ok();
         while let Ok(Some(line)) = stdout_reader.next_line().await {
-            let _ = app_clone1.emit("compose-progress", line);
+            let _ = app_clone1.emit("compose-progress", line.clone());
+            if let Some(ref mut file) = f { let _ = writeln!(file, "{}", line); }
         }
     });
 
     let app_clone2 = app.clone();
+    let log_path2 = log_file_path.clone();
     let mut stderr_reader = BufReader::new(stderr).lines();
     tokio::spawn(async move {
+        use std::fs::OpenOptions;
+        let mut f = OpenOptions::new().append(true).open(log_path2).ok();
         while let Ok(Some(line)) = stderr_reader.next_line().await {
-            let _ = app_clone2.emit("compose-progress", line);
+            let _ = app_clone2.emit("compose-progress", line.clone());
+            if let Some(ref mut file) = f { let _ = writeln!(file, "{}", line); }
         }
     });
 
     let status = child.wait().await.map_err(|e| e.to_string())?;
 
     if status.success() {
-        Ok("Launched successfully".to_string())
+        Ok(log_filename)
     } else {
-        Err("Failed to launch compose. Check Engine Logs or ensure Docker is running.".to_string())
+        Err(format!("Docker Compose failed. Details in {}", log_filename))
     }
 }
 

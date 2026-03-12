@@ -44,64 +44,69 @@ export interface Project {
   deployHistory?: DeploySession[];
 }
 
+// ── Helper: Extract PHP version from image tag ──────────────────
+function extractPhpVersion(image: string): { major: number; minor: number } | null {
+  const match = image.match(/php:(\d+)\.(\d+)/);
+  if (match) return { major: parseInt(match[1]), minor: parseInt(match[2]) };
+  return null;
+}
+
+function phpVersionAtLeast(phpVer: { major: number; minor: number } | null, major: number, minor: number): boolean {
+  if (!phpVer) return true; // If we can't detect, assume latest
+  return phpVer.major > major || (phpVer.major === major && phpVer.minor >= minor);
+}
+
+// ── Helper: Check if ext is compatible with PHP version ──────────
+function isExtCompatibleWithPhp(ext: any, phpVer: { major: number; minor: number } | null): boolean {
+  if (!ext.minPhp || !phpVer) return true;
+  const minParts = String(ext.minPhp).split('.');
+  const minMajor = parseInt(minParts[0]) || 0;
+  const minMinor = parseInt(minParts[1]) || 0;
+  return phpVersionAtLeast(phpVer, minMajor, minMinor);
+}
+
 // ── Dockerfile Generation ────────────────────────────────────────
 export function generateDockerfileForService(svc: ServiceConfig): string {
-  const isAlpine = svc.image.includes('alpine');
   const isApache = svc.image.includes('apache');
   const isPhpImage = svc.image.startsWith('php:');
+  const phpVer = extractPhpVersion(svc.image);
   
   const lines: string[] = [`FROM ${svc.image}`];
 
   if (svc.type === 'php' || svc.type === 'laravel') {
     const phpExts = svc.phpExtensions || [];
-    const sysDeps = new Set<string>(['unzip', 'git']);
     
     const allExtData = phpExtensionLibrary.categories.flatMap(cat => cat.extensions);
     
-    const selectedExtConfigs: any[] = [];
+    // Filter compatible extensions
+    const validExts: string[] = [];
+    const skippedExts: string[] = [];
     for (const extName of phpExts) {
       const data = allExtData.find(e => e.name === extName);
       if (data) {
-        selectedExtConfigs.push(data);
-        const osDeps = isAlpine ? data.deps.alpine : data.deps.debian;
-        osDeps.forEach(d => sysDeps.add(d));
-      }
-    }
-
-    if (sysDeps.size > 0 && isPhpImage) {
-      const depsArray = Array.from(sysDeps);
-      if (isAlpine) {
-        lines.push(`RUN apk add --no-cache ${depsArray.join(' ')}`);
-      } else {
-        lines.push('ENV DEBIAN_FRONTEND=noninteractive');
-        lines.push(`RUN apt-get update && apt-get install -y ${depsArray.join(' ')} --no-install-recommends && rm -rf /var/lib/apt/lists/*`);
-      }
-    }
-
-    if (isPhpImage) {
-      for (const ext of selectedExtConfigs) {
-         if (ext.configure) {
-           lines.push(`RUN docker-php-ext-configure ${ext.name} ${ext.configure}`);
-         }
-      }
-
-      const coreExts = selectedExtConfigs.filter(e => e.type === 'core').map(e => e.name);
-      const peclExts = selectedExtConfigs.filter(e => e.type === 'pecl').map(e => e.name);
-
-      if (coreExts.length > 0) {
-        lines.push(`RUN docker-php-ext-install ${coreExts.join(' ')}`);
-      }
-      if (peclExts.length > 0) {
-        if (isAlpine) {
-          lines.push(`RUN apk add --no-cache $PHPIZE_DEPS && pecl install ${peclExts.join(' ')} && docker-php-ext-enable ${peclExts.join(' ')} && apk del $PHPIZE_DEPS`);
-        } else {
-          lines.push(`RUN pecl install ${peclExts.join(' ')} && docker-php-ext-enable ${peclExts.join(' ')}`);
+        if (!isExtCompatibleWithPhp(data, phpVer)) {
+          skippedExts.push(extName);
+          continue;
         }
+        validExts.push(extName);
       }
+    }
+
+    if (skippedExts.length > 0) {
+      lines.push(`# Skipped incompatible extensions for PHP ${phpVer?.major}.${phpVer?.minor}: ${skippedExts.join(', ')}`);
+    }
+
+    // Use install-php-extensions (https://github.com/mlocati/docker-php-extension-installer)
+    // This tool automatically handles: system deps, pre-installed detection, PECL vs core,
+    // version compatibility, configure flags (gd, etc.), and post-install cleanup.
+    if (isPhpImage && validExts.length > 0) {
+      lines.push('ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/');
+      lines.push(`RUN install-php-extensions ${validExts.join(' ')}`);
     }
 
     if (svc.installComposer) {
-      lines.push('COPY --from=composer:latest /usr/bin/composer /usr/bin/composer');
+      // Install Composer via direct download (avoids Docker credential helper issues with multi-stage COPY --from=)
+      lines.push('RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer');
     }
 
     if (isApache) {

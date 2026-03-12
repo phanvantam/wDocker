@@ -427,18 +427,31 @@ async function stopProject(proj: Project) {
 async function redeployProject(proj: Project) {
   showLaunchModal.value = true;
   launchTargetName.value = proj.name;
-  launchLogs.value = 'Redeploying project...\n';
+  launchLogs.value = 'Redeploying project (with rebuild)...\n';
   launching.value = true;
 
   try {
-    launchLogs.value += 'Stopping container...\n';
-    try { await invoke('stop_container', { id: getContainerId(proj) }); } catch (_) {}
-    launchLogs.value += 'Removing container...\n';
-    try { await invoke('remove_container', { id: getContainerId(proj) }); } catch (_) {}
+    // Stop and remove ALL containers in this project
+    for (let i = 0; i < proj.config.services.length; i++) {
+      const cid = getContainerId(proj, i);
+      launchLogs.value += `Stopping ${cid}...\n`;
+      try { await invoke('stop_container', { id: cid }); } catch (_) {}
+      launchLogs.value += `Removing ${cid}...\n`;
+      try { await invoke('remove_container', { id: cid }); } catch (_) {}
+    }
+
+    // Regenerate YAML and project files from current config to pick up extension changes
+    const newYaml = generateComposeTemplate({
+      name: proj.name, domain: proj.domain,
+      path: proj.path, services: proj.config.services
+    });
+    proj.yaml = newYaml;
+    saveProjectsLocal();
+
     launchLogs.value += 'Refreshing project files on disk...\n';
     saveAllProjectFiles(proj);
-    launchLogs.value += 'Re-deploying with current config...\n';
-    await launchProject(proj);
+    launchLogs.value += 'Re-deploying with --build --force-recreate...\n';
+    await launchProjectWithBuild(proj);
     return;
   } catch (e) {
     launchLogs.value += `Error: ${e}\n`;
@@ -494,23 +507,54 @@ async function launchProject(proj: Project) {
       workingDir: `~/.wDocker/projects/${safeName}`
     });
     launchLogs.value += `\nDeployment Triggered: ${result}\nIf Nginx Proxy is active, domain http://${proj.domain} should be routable soon.`;
-
-    const session: DeploySession = { timestamp: new Date().toLocaleString(), log: launchLogs.value, success: true };
-    if (!proj.deployHistory) proj.deployHistory = [];
-    proj.deployHistory.push(session);
-    if (proj.deployHistory.length > 10) proj.deployHistory.shift();
-    saveProjectsLocal();
-  } catch (e) {
+    addDeploySession(proj, true, result);
+  } catch (e: any) {
     launchLogs.value += `\nFailed to start project: ${e}`;
-    const session: DeploySession = { timestamp: new Date().toLocaleString(), log: launchLogs.value, success: false };
-    if (!proj.deployHistory) proj.deployHistory = [];
-    proj.deployHistory.push(session);
-    if (proj.deployHistory.length > 10) proj.deployHistory.shift();
-    saveProjectsLocal();
+    addDeploySession(proj, false, e.toString());
   } finally {
     launching.value = false;
     await refreshProjectStatuses(getContainerId);
   }
+}
+
+async function launchProjectWithBuild(proj: Project) {
+  try {
+    const safeName = proj.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    launchLogs.value += `Executing engine rollout with --build...\n`;
+    const result = await invoke<string>('launch_compose', {
+      yaml: proj.yaml,
+      projectName: `wdp-${safeName}`,
+      workingDir: `~/.wDocker/projects/${safeName}`,
+      forceBuild: true
+    });
+    launchLogs.value += `\nDeployment Triggered: ${result}\nIf Nginx Proxy is active, domain http://${proj.domain} should be routable soon.`;
+    addDeploySession(proj, true, result);
+  } catch (e: any) {
+    launchLogs.value += `\nFailed to start project: ${e}`;
+    addDeploySession(proj, false, e.toString());
+  } finally {
+    launching.value = false;
+    await refreshProjectStatuses(getContainerId);
+  }
+}
+
+/**
+ * Saves deployment status to history without bloating localStorage
+ */
+function addDeploySession(proj: Project, success: boolean, logFile: string) {
+  const safeName = proj.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const session: DeploySession = { 
+    timestamp: new Date().toLocaleString(), 
+    log: `(Full log: ~/.wDocker/logs/${safeName}/${logFile})`, 
+    success 
+  };
+  
+  if (!proj.deployHistory) proj.deployHistory = [];
+  proj.deployHistory.push(session);
+  
+  // Keep last 10 sessions
+  if (proj.deployHistory.length > 10) proj.deployHistory.shift();
+  saveProjectsLocal();
 }
 
 function closeLaunchModal() {
@@ -548,8 +592,13 @@ onMounted(async () => {
   checkRouterStatus();
   const listenFn = await listen<string>('compose-progress', (event) => {
     if (showLaunchModal.value) {
-      launchLogs.value += event.payload + '\n';
-      const pre = document.querySelector('.bg-\\[\\#0f111a\\]');
+      const lines = launchLogs.value.split('\n');
+      lines.push(event.payload);
+      // Keep only last 100 lines in memory for display
+      if (lines.length > 100) lines.shift();
+      launchLogs.value = lines.join('\n');
+      
+      const pre = document.querySelector('.bg-\\[\\#0a0c14\\]');
       if (pre) pre.scrollTop = pre.scrollHeight;
     }
   });
