@@ -34,3 +34,15 @@ Dự án được triển khai dựa trên 3 module chính đã hoàn thiện:
 - Luôn đọc file `AGENTS.md` này để nắm design architecture.
 - Trước khi thêm thư viện hoặc tính năng lớn, luôn tạo `task.md` và tuân thủ các boundaries/phrases logic.
 - Khuyến khích tham khảo các composables hiện tại trước khi trực tiếp modify các views.
+
+## 5. Release & Versioning (Phát hành & Phiên bản)
+- **Quy tắc cập nhật phiên bản**:
+  - Khi thay đổi version, phải cập nhật đồng bộ tại 3 file:
+    1. `package.json` (Trường `version`)
+    2. `src-tauri/tauri.conf.json` (Trường `version`)
+    3. `src-tauri/Cargo.toml` (Trường `version` trong `[package]`)
+- **Quy trình Release**:
+  - Hệ thống sử dụng GitHub Actions (`.github/workflows/release.yml`) để tự động build và tạo release asset.
+  - Workflow được kích hoạt khi có một **Git Tag** mới khớp với định dạng `v*` (VD: `v1.1.0`) được push lên repository.
+  - Tên Release và Tag trên GitHub sẽ tự động lấy theo tên Git Tag đã push nhờ biến `${{ github.ref_name }}`.
+  - `releaseDraft` được thiết lập là `false`, các asset sẽ hiển thị công khai ngay sau khi build thành công.
