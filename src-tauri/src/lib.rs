@@ -583,6 +583,10 @@ async fn launch_compose(app: tauri::AppHandle, state: State<'_, AppState>, yaml:
         cmd.env("DOCKER_HOST", host);
     }
 
+    // Ensure PATH includes common binary locations for credential helpers
+    let current_path = std::env::var("PATH").unwrap_or_default();
+    cmd.env("PATH", format!("/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:{}", current_path));
+
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 

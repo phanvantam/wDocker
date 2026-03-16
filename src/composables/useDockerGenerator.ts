@@ -130,7 +130,7 @@ export function generateDockerfileForService(svc: ServiceConfig): string {
 export function generateComposeTemplate(w: { name: string; domain: string; path: string; services: ServiceConfig[] }): string {
   const safeName = w.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
-  let yaml = `version: "3.8"\n\nnetworks:\n  wdocker_network:\n    external: true\n\nservices:\n`;
+  let yaml = `networks:\n  wdocker_network:\n    external: true\n\nservices:\n`;
 
   for (const svc of w.services) {
     const containerName = `wdocker-${safeName}-${svc.name}`;
