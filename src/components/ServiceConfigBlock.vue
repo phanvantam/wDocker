@@ -75,13 +75,13 @@
       <!-- Volumes -->
       <div>
         <label class="block text-[10px] text-[var(--color-muted)] uppercase tracking-wider font-semibold mb-1">Volumes (one per line, host:container)</label>
-        <textarea v-model="service.volumes" rows="2" :placeholder="wizardPath + ':/var/www/html\n~/.wDocker/logs:/var/log'" class="w-full bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white font-mono focus:border-[var(--color-accent)] outline-none resize-none leading-relaxed"></textarea>
+        <textarea v-model="service.volumes" rows="4" :placeholder="wizardPath + ':/var/www/html\n~/.wDocker/logs:/var/log'" class="w-full bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white font-mono focus:border-[var(--color-accent)] outline-none resize-y leading-relaxed"></textarea>
       </div>
 
       <!-- Environment Variables -->
       <div>
         <label class="block text-[10px] text-[var(--color-muted)] uppercase tracking-wider font-semibold mb-1">Environment Variables (KEY=value, one per line)</label>
-        <textarea v-model="service.environment" rows="2" placeholder="VIRTUAL_HOST=myapp.test&#10;APP_ENV=local" class="w-full bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white font-mono focus:border-[var(--color-accent)] outline-none resize-none leading-relaxed"></textarea>
+        <textarea v-model="service.environment" rows="4" placeholder="VIRTUAL_HOST=myapp.test&#10;APP_ENV=local" class="w-full bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white font-mono focus:border-[var(--color-accent)] outline-none resize-y leading-relaxed"></textarea>
       </div>
 
       <!-- PHP extras -->
@@ -121,14 +121,25 @@
         </div>
         <div>
           <label class="block text-[10px] text-[var(--color-muted)] uppercase tracking-wider font-semibold mb-1">Custom php.ini</label>
-          <textarea v-model="service.phpIni" rows="2" placeholder="upload_max_filesize = 64M&#10;memory_limit = 256M" class="w-full bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white font-mono focus:border-[var(--color-accent)] outline-none resize-none leading-relaxed"></textarea>
+          <textarea v-model="service.phpIni" rows="4" placeholder="upload_max_filesize = 64M&#10;memory_limit = 256M" class="w-full bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white font-mono focus:border-[var(--color-accent)] outline-none resize-y leading-relaxed"></textarea>
         </div>
       </div>
 
       <!-- Custom Nginx Proxy Config -->
       <div v-if="service.isPublic">
         <label class="block text-[10px] text-[var(--color-muted)] uppercase tracking-wider font-semibold mb-1">Custom Nginx Proxy Config (inserted into server block)</label>
-        <textarea v-model="service.customNginx" rows="3" placeholder="# Example: Custom block for Laravel /index.php&#10;location ~ \.php$ {&#10;    # ...&#10;}" class="w-full bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white font-mono focus:border-[var(--color-accent)] outline-none resize-none leading-relaxed"></textarea>
+        <textarea v-model="service.customNginx" rows="5" placeholder="# Example: Custom block for Laravel /index.php&#10;location ~ \.php$ {&#10;    # ...&#10;}" class="w-full bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-[11px] text-white font-mono focus:border-[var(--color-accent)] outline-none resize-y leading-relaxed"></textarea>
+        <div class="flex flex-wrap gap-1.5 mt-1.5">
+          <span class="text-[9px] text-[var(--color-muted)] mr-1 leading-5">Presets:</span>
+          <button
+            v-for="preset in nginxPresets"
+            :key="preset.name"
+            @click="applyNginxPreset(preset.value)"
+            class="cursor-pointer px-2 py-0.5 rounded text-[9px] border border-[var(--color-border)] text-gray-400 hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/5 transition font-medium"
+          >
+            {{ preset.name }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -138,7 +149,7 @@
 import AppIcon from './AppIcon.vue';
 import type { ServiceConfig } from '../composables/useDockerGenerator';
 
-defineProps<{
+const props = defineProps<{
   service: ServiceConfig;
   index: number;
   phpExtensionCategories: any[];
@@ -153,4 +164,102 @@ defineEmits<{
   (e: 'open-library'): void;
   (e: 'update-tag', tag: string): void;
 }>();
+
+const nginxPresets = [
+  {
+    name: 'Laravel',
+    value: `# Laravel - Static assets & PHP fallback
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        proxy_pass http://UPSTREAM;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Deny access to hidden files
+    location ~ /\\. {
+        deny all;
+    }`
+  },
+  {
+    name: 'WordPress',
+    value: `# WordPress - Uploads & static files
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        proxy_pass http://UPSTREAM;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Block access to sensitive files
+    location ~* /(wp-config\\.php|readme\\.html|license\\.txt) {
+        deny all;
+    }
+
+    # XML-RPC protection
+    location = /xmlrpc.php {
+        deny all;
+    }`
+  },
+  {
+    name: 'Vue/React SPA',
+    value: `# SPA - Client-side routing support
+    # Note: This is typically handled by the dev server.
+    # For production builds served by nginx directly:
+    # location / {
+    #     try_files $uri $uri/ /index.html;
+    # }
+
+    # Cache static assets
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|map)$ {
+        proxy_pass http://UPSTREAM;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }`
+  },
+  {
+    name: 'Node.js API',
+    value: `# Node.js API - Larger body size & extended timeouts
+    client_max_body_size 50M;
+    
+    # CORS headers (adjust origins as needed)
+    # add_header Access-Control-Allow-Origin *;
+    # add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+    # add_header Access-Control-Allow-Headers "Authorization, Content-Type";`
+  },
+  {
+    name: 'File Uploads',
+    value: `# File Uploads - Allow large file uploads
+    client_max_body_size 256M;
+    client_body_timeout 300s;
+    proxy_request_buffering off;`
+  },
+  {
+    name: 'WebSocket',
+    value: `# WebSocket - Dedicated endpoint
+    location /ws {
+        proxy_pass http://UPSTREAM;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }`
+  },
+  {
+    name: 'Security Headers',
+    value: `# Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;`
+  }
+];
+
+function applyNginxPreset(value: string) {
+  if (props.service.customNginx && props.service.customNginx.trim()) {
+    props.service.customNginx += '\n\n' + value;
+  } else {
+    props.service.customNginx = value;
+  }
+}
 </script>

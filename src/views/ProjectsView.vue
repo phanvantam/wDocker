@@ -67,7 +67,14 @@
     <YamlViewerModal :show="showYamlModal" :title="yamlViewTitle" :content="yamlViewContent" @close="showYamlModal = false" />
     
     <!-- Deploy Modal -->
-    <DeployModal :show="showLaunchModal" :target-name="launchTargetName" :logs="launchLogs" :launching="launching" @close="closeLaunchModal" />
+    <DeployModal 
+      :show="showLaunchModal" 
+      :target-name="launchTargetName" 
+      :logs="launchLogs" 
+      :launching="launching" 
+      :log-filename="launchLogFilename"
+      @close="closeLaunchModal" 
+    />
 
     <!-- Project-specific Resizable Drawer -->
     <ServiceDrawer 
@@ -235,7 +242,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, ask } from '@tauri-apps/plugin-dialog';
 import AppIcon from '../components/AppIcon.vue';
 import ServiceDrawer from '../components/ServiceDrawer.vue';
 import ContainerLogs from '../components/ContainerLogs.vue';
@@ -281,6 +288,7 @@ const yamlViewContent = ref('');
 const showLaunchModal = ref(false);
 const launchTargetName = ref('');
 const launchLogs = ref('');
+const launchLogFilename = ref('');
 const launching = ref(false);
 
 // ── Delete Modal ─────────────────────────────────────────────
@@ -460,18 +468,40 @@ async function redeployProject(proj: Project) {
   }
 }
 
-function generateAndSave() {
+async function generateAndSave() {
   const w = wizard.value;
   const yaml = generateComposeTemplate(w);
 
   if (editingProjectId.value) {
     const idx = projects.value.findIndex(p => p.id === editingProjectId.value);
     if (idx !== -1) {
+      const existing = projects.value[idx];
+      let keepRouterConfig = false;
+
+      // Check if nginx config on disk was manually edited
+      const safeName = existing.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      try {
+        const diskConfig = await invoke<string>('read_router_config', { projectName: safeName });
+        const autoConfig = generateNginxConfig(existing);
+        if (diskConfig && autoConfig && diskConfig.trim() !== autoConfig.trim()) {
+          const overwrite = await ask(
+            'The router config for this project has been manually edited. Do you want to overwrite it with the auto-generated config?',
+            { title: 'Overwrite Router Config?', kind: 'warning' }
+          );
+          if (!overwrite) {
+            keepRouterConfig = true;
+          }
+        }
+      } catch {
+        // Config file doesn't exist yet, no need to ask
+      }
+
       projects.value[idx] = {
-        ...projects.value[idx],
+        ...existing,
         name: w.name, domain: w.domain, path: w.path,
         config: { services: w.services.map(s => ({ ...s, expanded: false })) },
-        yaml
+        yaml,
+        routerConfig: keepRouterConfig ? '__keep__' : undefined
       };
     }
   } else {
@@ -496,6 +526,7 @@ async function launchProject(proj: Project) {
   showLaunchModal.value = true;
   launchTargetName.value = proj.name;
   launchLogs.value = 'Preparing configuration for Engine...\n';
+  launchLogFilename.value = '';
   launching.value = true;
 
   try {
@@ -506,8 +537,17 @@ async function launchProject(proj: Project) {
       projectName: `wdp-${safeName}`,
       workingDir: `~/.wDocker/projects/${safeName}`
     });
-    launchLogs.value += `\nDeployment Triggered: ${result}\nIf Nginx Proxy is active, domain http://${proj.domain} should be routable soon.`;
+    launchLogFilename.value = result;
+    launchLogs.value += `\nDeployment Triggered: ${result}`;
     addDeploySession(proj, true, result);
+    // Reload Nginx to pick up new route config
+    try {
+      launchLogs.value += `\nReloading Nginx Router...`;
+      await invoke('reload_nginx_proxy');
+      launchLogs.value += `\nNginx reloaded. Domain http://${proj.domain} should be routable now.`;
+    } catch {
+      launchLogs.value += `\nWarning: Could not reload Nginx (Router Service may not be running).`;
+    }
   } catch (e: any) {
     launchLogs.value += `\nFailed to start project: ${e}`;
     addDeploySession(proj, false, e.toString());
@@ -527,8 +567,17 @@ async function launchProjectWithBuild(proj: Project) {
       workingDir: `~/.wDocker/projects/${safeName}`,
       forceBuild: true
     });
-    launchLogs.value += `\nDeployment Triggered: ${result}\nIf Nginx Proxy is active, domain http://${proj.domain} should be routable soon.`;
+    launchLogFilename.value = result;
+    launchLogs.value += `\nDeployment Triggered: ${result}`;
     addDeploySession(proj, true, result);
+    // Reload Nginx to pick up new/updated route config
+    try {
+      launchLogs.value += `\nReloading Nginx Router...`;
+      await invoke('reload_nginx_proxy');
+      launchLogs.value += `\nNginx reloaded. Domain http://${proj.domain} should be routable now.`;
+    } catch {
+      launchLogs.value += `\nWarning: Could not reload Nginx (Router Service may not be running).`;
+    }
   } catch (e: any) {
     launchLogs.value += `\nFailed to start project: ${e}`;
     addDeploySession(proj, false, e.toString());

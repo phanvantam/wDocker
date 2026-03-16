@@ -29,6 +29,10 @@ export function useNginxProxy() {
   const isSavingConfig = ref(false);
   const isReloading = ref(false);
 
+  // Add Route state
+  const showAddRoute = ref(false);
+  const isAddingRoute = ref(false);
+
   // Log viewer state
   const showLogViewer = ref(false);
   const logFileName = ref('');
@@ -110,6 +114,65 @@ export function useNginxProxy() {
       console.error('Failed to reload Nginx:', e);
     } finally {
       setTimeout(() => { isReloading.value = false; }, 500);
+    }
+  }
+
+  // ── Add Route ──────────────────────────────────────────────────
+  function generateRouteNginxConfig(name: string, domain: string, upstream: string): string {
+    return `# wDocker Route Configuration\n# Route: ${name}\n\nserver {\n    listen 80;\n    server_name ${domain};\n\n    access_log /var/log/nginx/${name}_access.log;\n    error_log /var/log/nginx/${name}_error.log;\n\n    location / {\n        proxy_pass http://${upstream};\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n\n        proxy_read_timeout 600;\n        proxy_connect_timeout 600;\n        proxy_send_timeout 600;\n\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection "upgrade";\n    }\n}\n`;
+  }
+
+  async function registerRouteDns(domain: string) {
+    try {
+      const hosts = await invoke<string>('read_hosts_file');
+      const lines = hosts.split('\n');
+      const exists = lines.some(line => {
+        const parts = line.trim().split(/\s+/);
+        return parts.length >= 2 && parts.includes(domain);
+      });
+      if (!exists) {
+        let newContent = hosts;
+        if (!newContent.endsWith('\n')) newContent += '\n';
+        newContent += `127.0.0.1\t${domain}\n`;
+        await invoke('write_hosts_file', { content: newContent });
+      }
+    } catch (e) {
+      console.warn('Failed to auto-register DNS:', e);
+    }
+  }
+
+  async function addRouteConfig(data: { routeName: string; domain: string; upstream: string }) {
+    isAddingRoute.value = true;
+    try {
+      const safeName = data.routeName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const config = generateRouteNginxConfig(safeName, data.domain, data.upstream);
+      await invoke('save_router_config', { projectName: safeName, content: config });
+      await registerRouteDns(data.domain);
+      await reloadConfig();
+      showAddRoute.value = false;
+    } catch (e) {
+      console.error('Failed to add route:', e);
+    } finally {
+      isAddingRoute.value = false;
+    }
+  }
+
+  async function deleteRouteConfig(fileName: string) {
+    const projName = fileName.replace('.conf.disabled', '').replace('.conf', '');
+    try {
+      await invoke('remove_router_config', { projectName: projName });
+      await reloadConfig();
+    } catch (e) {
+      console.error('Failed to delete route:', e);
+    }
+  }
+
+  async function toggleRouteConfig(fileName: string) {
+    try {
+      await invoke('toggle_router_config', { fileName });
+      await reloadConfig();
+    } catch (e) {
+      console.error('Failed to toggle route:', e);
     }
   }
 
@@ -281,13 +344,15 @@ networks:
     showPortEditor, httpPort, httpsPort,
     // Config editor
     showEditor, editingFileName, editingContent, isSavingConfig, isReloading,
+    // Add Route
+    showAddRoute, isAddingRoute,
     // Log viewer
     showLogViewer, logFileName, activeLogTab, logContent, isRefreshingLogs,
     // Drawer
     isDrawerOpen, activeTab, drawerTabs,
     // Methods
     checkStatus,
-    openConfigEditor, saveManualConfig, reloadConfig,
+    openConfigEditor, saveManualConfig, reloadConfig, addRouteConfig, deleteRouteConfig, toggleRouteConfig,
     openLogViewer, refreshLogs,
     savePorts, savePortsAndRedeploy,
     installNginx, redeployNginx, startNginx, stopNginx,

@@ -76,15 +76,21 @@ export function useProjectStore() {
 
     saveProjectFile(safeName, 'docker-compose.yml', proj.yaml);
 
-    const nginxConf = proj.routerConfig || generateNginxConfig(proj);
-    if (nginxConf) {
-      invoke('save_router_config', { projectName: safeName, content: nginxConf })
-        .then(() => invoke('reload_nginx_proxy'))
-        .catch(e => console.error('Router config failed:', e));
+    // If routerConfig === '__keep__', user chose to preserve manual edits
+    if (proj.routerConfig !== '__keep__') {
+      const nginxConf = generateNginxConfig(proj);
+      if (nginxConf) {
+        invoke('save_router_config', { projectName: safeName, content: nginxConf })
+          .then(() => invoke('reload_nginx_proxy'))
+          .catch(e => console.error('Router config failed:', e));
+      } else {
+        invoke('remove_router_config', { projectName: safeName })
+          .then(() => invoke('reload_nginx_proxy'))
+          .catch(() => {});
+      }
     } else {
-      invoke('remove_router_config', { projectName: safeName })
-        .then(() => invoke('reload_nginx_proxy'))
-        .catch(() => {});
+      // Still reload nginx in case other files changed
+      invoke('reload_nginx_proxy').catch(() => {});
     }
 
     if (proj.domain) {

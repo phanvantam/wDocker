@@ -756,7 +756,7 @@ async fn list_router_configs() -> Result<Vec<String>, String> {
     let mut files = Vec::new();
     for entry in entries.flatten() {
         if let Some(name) = entry.file_name().to_str() {
-            if name.ends_with(".conf") {
+            if name.ends_with(".conf") || name.ends_with(".conf.disabled") {
                 files.push(name.to_string());
             }
         }
@@ -766,13 +766,35 @@ async fn list_router_configs() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 async fn remove_router_config(project_name: String) -> Result<String, String> {
-    let file_path = expand_tilde("~/.wDocker/router_conf").join(format!("{}.conf", project_name));
-    if file_path.exists() {
-        std::fs::remove_file(&file_path).map_err(|e| e.to_string())?;
-        Ok(format!("Removed {}", file_path.display()))
-    } else {
-        Ok("File does not exist".to_string())
+    let base = expand_tilde("~/.wDocker/router_conf");
+    let conf_path = base.join(format!("{}.conf", project_name));
+    let disabled_path = base.join(format!("{}.conf.disabled", project_name));
+    if conf_path.exists() {
+        std::fs::remove_file(&conf_path).map_err(|e| e.to_string())?;
     }
+    if disabled_path.exists() {
+        std::fs::remove_file(&disabled_path).map_err(|e| e.to_string())?;
+    }
+    Ok(format!("Removed router config for {}", project_name))
+}
+
+#[tauri::command]
+async fn toggle_router_config(file_name: String) -> Result<String, String> {
+    let base = expand_tilde("~/.wDocker/router_conf");
+    let file_path = base.join(&file_name);
+    if !file_path.exists() {
+        return Err(format!("File {} not found", file_name));
+    }
+    let new_name = if file_name.ends_with(".conf.disabled") {
+        file_name.replace(".conf.disabled", ".conf")
+    } else if file_name.ends_with(".conf") {
+        format!("{}.disabled", file_name)
+    } else {
+        return Err("Invalid file extension".to_string());
+    };
+    let new_path = base.join(&new_name);
+    std::fs::rename(&file_path, &new_path).map_err(|e| e.to_string())?;
+    Ok(new_name)
 }
 
 #[tauri::command]
@@ -924,7 +946,7 @@ pub fn run() {
             read_hosts_file, write_hosts_file,
             get_dir_size, clean_dir_contents,
             stream_container_logs,
-            save_router_config, read_router_config, list_router_configs, remove_router_config, reload_nginx_proxy, read_router_log,
+            save_router_config, read_router_config, list_router_configs, remove_router_config, toggle_router_config, reload_nginx_proxy, read_router_log,
             save_project_file, read_project_file,
         ])
         .run(tauri::generate_context!())

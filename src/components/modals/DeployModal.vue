@@ -43,7 +43,7 @@
         <!-- Log Output -->
         <div class="flex items-center justify-between mb-1 px-1">
           <span class="text-[9px] text-[var(--color-muted)] font-mono uppercase">Live Log Output (Last 100 lines)</span>
-          <span class="text-[9px] text-[var(--color-muted)] font-mono">Full log: ~/.wDocker/logs/{{ targetName.toLowerCase() }}/deploy.log</span>
+          <span class="text-[9px] text-[var(--color-muted)] font-mono">Full log: ~/.wDocker/logs/{{ safeTargetName }}/{{ logFilename || 'deploy.log' }}</span>
         </div>
         <pre 
           ref="logRef"
@@ -97,13 +97,21 @@
 import { ref, computed, watch, onUnmounted } from 'vue';
 import AppIcon from '../AppIcon.vue';
 
-const props = defineProps<{ show: boolean; targetName: string; logs: string; launching: boolean }>();
+const props = defineProps<{ 
+  show: boolean; 
+  targetName: string; 
+  logs: string; 
+  launching: boolean;
+  logFilename?: string;
+}>();
 defineEmits<{ (e: 'close'): void }>();
 
 const logRef = ref<HTMLElement | null>(null);
 const startTime = ref(0);
 const elapsedTime = ref('0s');
 let timerInterval: ReturnType<typeof setInterval> | undefined;
+
+const safeTargetName = computed(() => props.targetName.toLowerCase().replace(/[^a-z0-9]/g, '-'));
 
 // ── Progress Parsing ─────────────────────────────────────────
 type DeployPhase = 'prepare' | 'pull' | 'build' | 'create' | 'start' | 'done' | 'error';

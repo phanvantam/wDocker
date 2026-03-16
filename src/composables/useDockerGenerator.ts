@@ -70,14 +70,14 @@ export function generateDockerfileForService(svc: ServiceConfig): string {
   const isApache = svc.image.includes('apache');
   const isPhpImage = svc.image.startsWith('php:');
   const phpVer = extractPhpVersion(svc.image);
-  
+
   const lines: string[] = [`FROM ${svc.image}`];
 
   if (svc.type === 'php' || svc.type === 'laravel') {
     const phpExts = svc.phpExtensions || [];
-    
+
     const allExtData = phpExtensionLibrary.categories.flatMap(cat => cat.extensions);
-    
+
     // Filter compatible extensions
     const validExts: string[] = [];
     const skippedExts: string[] = [];
@@ -129,20 +129,21 @@ export function generateDockerfileForService(svc: ServiceConfig): string {
 // ── Compose Template Generation ──────────────────────────────────
 export function generateComposeTemplate(w: { name: string; domain: string; path: string; services: ServiceConfig[] }): string {
   const safeName = w.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-  
+
   let yaml = `version: "3.8"\n\nnetworks:\n  wdocker_network:\n    external: true\n\nservices:\n`;
 
   for (const svc of w.services) {
     const containerName = `wdocker-${safeName}-${svc.name}`;
-    
+
     const useBuild = (svc.type === 'php' || svc.type === 'laravel') && (
       (svc.phpExtensions && svc.phpExtensions.length > 0) ||
       svc.installComposer ||
-      (svc.phpIni && svc.phpIni.trim())
+      (svc.phpIni && svc.phpIni.trim()) ||
+      (svc.documentRoot && svc.documentRoot !== '/var/www/html')
     );
-    
+
     yaml += `  ${svc.name}:\n`;
-    
+
     if (useBuild) {
       yaml += `    build:\n`;
       yaml += `      context: ~/.wDocker/projects/${safeName}\n`;
@@ -150,17 +151,17 @@ export function generateComposeTemplate(w: { name: string; domain: string; path:
     } else {
       yaml += `    image: ${svc.image}\n`;
     }
-    
+
     yaml += `    container_name: ${containerName}\n`;
     yaml += `    restart: unless-stopped\n`;
-    
+
     if (svc.workingDir) {
       yaml += `    working_dir: ${svc.workingDir}\n`;
     }
     if (svc.command) {
       yaml += `    command: ${svc.command}\n`;
     }
-    
+
     const volLines = svc.volumes.split('\n').filter(v => v.trim());
     if (volLines.length > 0) {
       yaml += `    volumes:\n`;
@@ -168,11 +169,11 @@ export function generateComposeTemplate(w: { name: string; domain: string; path:
         yaml += `      - ${v.trim()}\n`;
       }
     }
-    
+
     yaml += `    networks:\n      - wdocker_network\n`;
-    
+
     const envLines = svc.environment.split('\n').filter(e => e.trim());
-    
+
     if (svc.isPublic) {
       envLines.push(`VIRTUAL_HOST=${w.domain || 'app.test'}`);
       if (svc.port) envLines.push(`VIRTUAL_PORT=${svc.port}`);
@@ -184,7 +185,7 @@ export function generateComposeTemplate(w: { name: string; domain: string; path:
         yaml += `      - ${e.trim()}\n`;
       }
     }
-    
+
     yaml += `    tty: true\n\n`;
   }
 
@@ -195,13 +196,13 @@ export function generateComposeTemplate(w: { name: string; domain: string; path:
 export function generateNginxConfig(proj: Project): string {
   const safeProjectName = proj.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
   let config = "# wDocker Nginx Proxy Configuration\n# You can customize this file. Manual edits in the Inspect tab will be preserved.\n\n";
-  
+
   for (const svc of proj.config.services) {
     if (svc.isPublic) {
       const serverNames = proj.domain || `${safeProjectName}.test`;
       const containerName = `wdocker-${safeProjectName}-${svc.name}`;
       const port = svc.port || 80;
-      
+
       config += `server {
     listen 80;
     server_name ${serverNames};

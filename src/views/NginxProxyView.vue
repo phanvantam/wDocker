@@ -57,6 +57,7 @@
             @click="checkStatus"
             :disabled="isFetching"
             class="cursor-pointer flex items-center justify-center p-2 rounded-xl bg-[var(--color-surface-hover)] border border-[var(--color-border)] hover:bg-[var(--color-border)] transition disabled:opacity-50"
+            title="Refresh status"
           >
             <div v-if="isFetching" class="animate-spin w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full"></div>
             <AppIcon v-else name="refresh" :size="16" />
@@ -100,7 +101,26 @@
             <AppIcon name="link" :size="18" class="text-[var(--color-accent)]" />
             Registered Project Routes
           </h3>
-          <span class="text-[10px] text-[var(--color-muted)] uppercase tracking-widest font-bold">{{ routerFiles.length }} Active Configs</span>
+          <span class="text-[10px] text-[var(--color-muted)] uppercase tracking-widest font-bold">{{ routerFiles.filter(f => f.endsWith('.conf')).length }} Active / {{ routerFiles.length }} Total</span>
+          <div class="flex gap-2">
+            <button 
+              @click="reloadConfig"
+              :disabled="isReloading"
+              class="cursor-pointer flex items-center gap-1.5 bg-[var(--color-surface-hover)] text-[var(--color-muted)] hover:text-white hover:bg-[var(--color-border)] px-3 py-1.5 rounded-lg text-xs font-bold transition border border-[var(--color-border)] disabled:opacity-50"
+              title="Reload all Nginx configs"
+            >
+              <div v-if="isReloading" class="animate-spin w-3 h-3 border-2 border-[var(--color-accent)] border-t-transparent rounded-full"></div>
+              <AppIcon v-else name="refresh" :size="14" />
+              Reload Nginx
+            </button>
+            <button 
+              @click="showAddRoute = true"
+              class="cursor-pointer flex items-center gap-1.5 bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20 px-3 py-1.5 rounded-lg text-xs font-bold transition border border-[var(--color-accent)]/20"
+            >
+              <AppIcon name="plus" :size="14" />
+              Add Route
+            </button>
+          </div>
         </div>
 
         <div v-if="routerFiles.length === 0" class="bg-[var(--color-surface-alt)] border border-[var(--color-border)] border-dashed rounded-2xl p-12 text-center">
@@ -112,10 +132,10 @@
           <RouterRouteCard
             v-for="file in routerFiles" :key="file"
             :file-name="file"
-            :reloading="isReloading"
             @view-logs="openLogViewer(file)"
             @edit-config="openConfigEditor(file)"
-            @reload="reloadConfig"
+            @delete="deleteRouteConfig(file)"
+            @toggle="toggleRouteConfig(file)"
           />
         </div>
       </div>
@@ -186,6 +206,14 @@
       @refresh="refreshLogs"
       @switch-tab="(tab: 'access' | 'error') => { activeLogTab = tab; refreshLogs(); }"
     />
+
+    <!-- Add Route Modal -->
+    <AddRouteModal
+      :show="showAddRoute"
+      :saving="isAddingRoute"
+      @close="showAddRoute = false"
+      @create="addRouteConfig"
+    />
   </div>
 </template>
 
@@ -197,6 +225,7 @@ import ContainerInfo from '../components/ContainerInfo.vue';
 import ContainerLogs from '../components/ContainerLogs.vue';
 import ConfigEditorModal from '../components/modals/ConfigEditorModal.vue';
 import LogViewerModal from '../components/modals/LogViewerModal.vue';
+import AddRouteModal from '../components/modals/AddRouteModal.vue';
 import RouterStatusCard from '../components/RouterStatusCard.vue';
 import RouterRouteCard from '../components/RouterRouteCard.vue';
 import { useNginxProxy } from '../composables/useNginxProxy';
@@ -205,9 +234,10 @@ const {
   isFetching, isInstalled, containerStatus, isProcessing,
   routerFiles, showPortEditor, httpPort, httpsPort,
   showEditor, editingFileName, editingContent, isSavingConfig, isReloading,
+  showAddRoute, isAddingRoute,
   showLogViewer, logFileName, activeLogTab, logContent, isRefreshingLogs,
   isDrawerOpen, activeTab, drawerTabs,
-  checkStatus, openConfigEditor, saveManualConfig, reloadConfig,
+  checkStatus, openConfigEditor, saveManualConfig, reloadConfig, addRouteConfig, deleteRouteConfig, toggleRouteConfig,
   openLogViewer, refreshLogs, savePortsAndRedeploy,
   installNginx, redeployNginx, startNginx, stopNginx,
   setupListeners,
