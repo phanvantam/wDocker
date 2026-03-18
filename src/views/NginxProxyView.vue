@@ -142,8 +142,7 @@
     </div>
 
     <!-- Resizable Drawer for Container Details -->
-    <ServiceDrawer 
-      v-if="isInstalled"
+    <ServiceDrawer
       :is-open="isDrawerOpen"
       v-model:active-tab="activeTab"
       :tabs="drawerTabs"
@@ -153,11 +152,17 @@
     >
       <template #logs>
         <ContainerLogs
-          v-if="activeTab === 'logs'"
+          v-if="activeTab === 'logs' && isInstalled"
           container-id="wdocker-nginx-proxy"
           name="wdocker-nginx-proxy"
           class="h-full"
         />
+        <div v-else-if="activeTab === 'logs'" class="h-full bg-[var(--color-surface)] flex items-center justify-center text-[var(--color-muted)] font-mono text-xs">
+          <div class="text-center">
+            <AppIcon name="server" :size="48" class="mx-auto mb-4 opacity-20" />
+            Install the Router Service to view logs.
+          </div>
+        </div>
       </template>
 
       <template #terminal>
@@ -177,11 +182,17 @@
 
       <template #info>
         <ContainerInfo
-          v-if="activeTab === 'info'"
+          v-if="activeTab === 'info' && isInstalled"
           container-id="wdocker-nginx-proxy"
           name="wdocker-nginx-proxy"
           class="h-full"
         />
+        <div v-else-if="activeTab === 'info'" class="h-full bg-[var(--color-surface)] flex items-center justify-center text-[var(--color-muted)] font-mono text-xs">
+          <div class="text-center">
+            <AppIcon name="server" :size="48" class="mx-auto mb-4 opacity-20" />
+            Install the Router Service to view info.
+          </div>
+        </div>
       </template>
     </ServiceDrawer>
 
@@ -214,6 +225,16 @@
       @close="showAddRoute = false"
       @create="addRouteConfig"
     />
+
+    <!-- Deploy Modal -->
+    <DeployModal
+      :show="showDeployModal"
+      target-name="Router Service"
+      :logs="deployLogs"
+      :launching="isProcessing"
+      :log-filename="deployLogFilename"
+      @close="showDeployModal = false"
+    />
   </div>
 </template>
 
@@ -226,6 +247,7 @@ import ContainerLogs from '../components/ContainerLogs.vue';
 import ConfigEditorModal from '../components/modals/ConfigEditorModal.vue';
 import LogViewerModal from '../components/modals/LogViewerModal.vue';
 import AddRouteModal from '../components/modals/AddRouteModal.vue';
+import DeployModal from '../components/modals/DeployModal.vue';
 import RouterStatusCard from '../components/RouterStatusCard.vue';
 import RouterRouteCard from '../components/RouterRouteCard.vue';
 import { useNginxProxy } from '../composables/useNginxProxy';
@@ -237,6 +259,7 @@ const {
   showAddRoute, isAddingRoute,
   showLogViewer, logFileName, activeLogTab, logContent, isRefreshingLogs,
   isDrawerOpen, activeTab, drawerTabs,
+  showDeployModal, deployLogs, deployLogFilename,
   checkStatus, openConfigEditor, saveManualConfig, reloadConfig, addRouteConfig, deleteRouteConfig, toggleRouteConfig,
   openLogViewer, refreshLogs, savePortsAndRedeploy,
   installNginx, redeployNginx, startNginx, stopNginx,

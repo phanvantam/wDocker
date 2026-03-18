@@ -49,6 +49,11 @@ export function useNginxProxy() {
     { id: 'info', label: 'Inspect' }
   ];
 
+  // Deploy modal state
+  const showDeployModal = ref(false);
+  const deployLogs = ref('');
+  const deployLogFilename = ref('');
+
   let unlistenCompose: () => void;
   let unlistenLogs: () => void;
 
@@ -236,8 +241,9 @@ export function useNginxProxy() {
 
   async function installNginx() {
     isProcessing.value = true;
-    isDrawerOpen.value = true;
-    activeTab.value = 'logs';
+    showDeployModal.value = true;
+    deployLogs.value = 'Preparing wDocker Nginx Proxy template...\n';
+    deployLogFilename.value = '';
     containerLogs.value = ['Preparing wDocker Nginx Proxy template...'];
 
     const composeYaml = `
@@ -264,12 +270,15 @@ networks:
 `;
 
     try {
+      deployLogs.value += 'Deploying stack via wDocker Engine...\n';
       containerLogs.value.push('Deploying stack via wDocker Engine...');
-      await invoke('launch_compose', {
+      const logFile = await invoke<string>('launch_compose', {
         yaml: composeYaml,
         projectName: 'wdocker-core'
       });
+      deployLogFilename.value = logFile;
     } catch (e: any) {
+      deployLogs.value += 'Error: ' + e?.toString() + '\n';
       containerLogs.value.push('Error: ' + e?.toString());
     }
 
@@ -279,21 +288,26 @@ networks:
 
   async function redeployNginx() {
     isProcessing.value = true;
-    isDrawerOpen.value = true;
-    activeTab.value = 'logs';
+    showDeployModal.value = true;
+    deployLogs.value = 'Redeploying Router Service with new config...\n';
+    deployLogFilename.value = '';
     containerLogs.value = ['Redeploying Router Service with new config...'];
 
     try {
+      deployLogs.value += 'Stopping existing container...\n';
       containerLogs.value.push('Stopping existing container...');
       try { await invoke('stop_container', { id: 'wdocker-nginx-proxy' }); } catch (_) {}
 
+      deployLogs.value += 'Removing old container...\n';
       containerLogs.value.push('Removing old container...');
       try { await invoke('remove_container', { id: 'wdocker-nginx-proxy' }); } catch (_) {}
 
+      deployLogs.value += `Deploying with ports ${httpPort.value}:80, ${httpsPort.value}:443...\n`;
       containerLogs.value.push(`Deploying with ports ${httpPort.value}:80, ${httpsPort.value}:443...`);
       await installNginx();
       return;
     } catch (e: any) {
+      deployLogs.value += 'Error during redeploy: ' + e?.toString() + '\n';
       containerLogs.value.push('Error during redeploy: ' + e?.toString());
     }
     isProcessing.value = false;
@@ -325,6 +339,7 @@ networks:
       await checkStatus();
       const listenFn = await listen<string>('compose-progress', (event) => {
         containerLogs.value.push(event.payload);
+        deployLogs.value += event.payload + '\n';
         scrollToBottom();
       });
       unlistenCompose = listenFn;
@@ -350,6 +365,8 @@ networks:
     showLogViewer, logFileName, activeLogTab, logContent, isRefreshingLogs,
     // Drawer
     isDrawerOpen, activeTab, drawerTabs,
+    // Deploy modal
+    showDeployModal, deployLogs, deployLogFilename,
     // Methods
     checkStatus,
     openConfigEditor, saveManualConfig, reloadConfig, addRouteConfig, deleteRouteConfig, toggleRouteConfig,
