@@ -124,7 +124,7 @@ export function useNginxProxy() {
 
   // ── Add Route ──────────────────────────────────────────────────
   function generateRouteNginxConfig(name: string, domain: string, upstream: string): string {
-    return `# wDocker Route Configuration\n# Route: ${name}\n\nserver {\n    listen 80;\n    server_name ${domain};\n\n    access_log /var/log/nginx/${name}_access.log;\n    error_log /var/log/nginx/${name}_error.log;\n\n    location / {\n        proxy_pass http://${upstream};\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n\n        proxy_read_timeout 600;\n        proxy_connect_timeout 600;\n        proxy_send_timeout 600;\n\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection "upgrade";\n    }\n}\n`;
+    return `# wDocker Route Configuration\n# Route: ${name}\n\nserver {\n    listen 80;\n    server_name ${domain};\n\n    access_log /var/log/nginx/${name}_access.log;\n    error_log /var/log/nginx/${name}_error.log;\n\n    # Use Docker internal DNS so Nginx can start even if upstream containers are down\n    resolver 127.0.0.11 valid=10s ipv6=off;\n\n    location / {\n        set $upstream http://${upstream};\n        proxy_pass $upstream;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n\n        proxy_read_timeout 600;\n        proxy_connect_timeout 600;\n        proxy_send_timeout 600;\n\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade $http_upgrade;\n        proxy_set_header Connection "upgrade";\n    }\n}\n`;
   }
 
   async function registerRouteDns(domain: string) {
@@ -247,8 +247,6 @@ export function useNginxProxy() {
     containerLogs.value = ['Preparing wDocker Nginx Proxy template...'];
 
     const composeYaml = `
-version: '3.8'
-
 services:
   proxy:
     image: nginx:alpine
@@ -277,6 +275,7 @@ networks:
         projectName: 'wdocker-core'
       });
       deployLogFilename.value = logFile;
+      deployLogs.value += 'Router Service launched successfully.\n';
     } catch (e: any) {
       deployLogs.value += 'Error: ' + e?.toString() + '\n';
       containerLogs.value.push('Error: ' + e?.toString());

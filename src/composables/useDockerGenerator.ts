@@ -210,11 +210,15 @@ export function generateNginxConfig(proj: Project): string {
     access_log /var/log/nginx/${safeProjectName}_access.log;
     error_log /var/log/nginx/${safeProjectName}_error.log;
 
+    # Use Docker internal DNS so Nginx can start even if upstream containers are down
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
     # Root directory (optional, proxy_pass handles the traffic to container)
     # root ${proj.path}; 
 
     location / {
-        proxy_pass http://${containerName}:${port};
+        set $upstream http://${containerName}:${port};
+        proxy_pass $upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

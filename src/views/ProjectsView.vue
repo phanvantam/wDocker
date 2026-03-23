@@ -428,7 +428,10 @@ function closeInspect() {
 
 
 async function stopProject(proj: Project) {
-  try { await invoke('stop_container', { id: getContainerId(proj) }); } catch (e) { console.error('Stop failed:', e); }
+  for (let i = 0; i < proj.config.services.length; i++) {
+    const cid = getContainerId(proj, i);
+    try { await invoke('stop_container', { id: cid }); } catch (e) { console.error(`Stop ${cid} failed:`, e); }
+  }
   await refreshProjectStatuses(getContainerId);
 }
 
